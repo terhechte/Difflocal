@@ -43,37 +43,54 @@ def openWithProperEncoding(path):
 def findKeys(path):
     reString = re.compile(r'\s*"((\\.|.)+?)"\s*=\s*"(.+?)";')
     keys = []
+    keyTable = {}
     for line in openWithProperEncoding(path):
         m = reString.search(line)
         if m:
             source = m.groups()[0]
             keys.append(source)
-    return keys
+            keyTable[source] = line
+    return (keys, keyTable)
 
 
-def compareKeysForLocals(lc1, lc2):
-    keys1 = findKeys(lc1)
-    keys2 = findKeys(lc2)
-    for key in keys1:
-        if not key in keys2:
-            print "Locale is missing key: %s" % (key,)
+def compareKeysForLocals(lc1, lc2, detailed=False):
+    def missingKeys(k1, k2):
+        for key in k1:
+            if not key in k2:
+                yield key
+
+    keys1, keyTable1 = findKeys(lc1)
+    keys2, keyTable2 = findKeys(lc2)
+
+    # first print the entries
+    for key in missingKeys(keys1, keys2):
+            print "Missing: %s" % (key,)
+
+    # second print the detailed rows
+    if detailed:
+        print "----------------------------------------"
+        for key in missingKeys(keys1, keys2):
+            print keyTable1.get(key)
 
 
 def parseOptions():
     usage = """usage: %prog [options]
 
-	difflocal commpares two local files: your primary local that contains all the additions from your work on the project, and another local which doesn't contain the additions yet.
+    difflocal commpares two local files: your primary local that contains all the additions from your work on the project, and another local which doesn't contain the additions yet.
 
-	It will compare the two files and list all the additions. The arguments are the paths of the two Localizable.strings files."""
+    It will compare the two files and list all the additions. The arguments are the paths of the two Localizable.strings files."""
     parser = optparse.OptionParser(usage)
     parser.set_defaults(originalLocaleFile=default_localfile,
-                        otherLocalFile=default_otherfile)
+                        otherLocalFile=default_otherfile, detailed=False)
 
     parser.add_option("-l", "--originalLocaleFile", dest="originalLocaleFile", type="str",
         help = "The filename of your source locale.  The default is 'en'.")
 
     parser.add_option("-o", "--otherLocalFile", dest="otherLocalFile", type="str",
         help = "The filename of the other locale to operate on")
+    
+    parser.add_option("-d", "--detailed", dest="detailed", type="int",
+        help = "Should the script also print the complete missing line")
 
     options, arguments = parser.parse_args()
 
@@ -85,7 +102,8 @@ def main():
 
     if options.originalLocaleFile and options.otherLocalFile:
         compareKeysForLocals(options.originalLocaleFile,
-                             options.otherLocalFile)
+                             options.otherLocalFile,
+                            options.detailed)
 
 if __name__ == "__main__":
     main()
